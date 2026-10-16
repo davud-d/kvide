@@ -322,3 +322,74 @@ def test_left_click_switches_without_closing(project: Path) -> None:
             assert app.tabs.tab_count == 2
 
     _run(scenario())
+
+
+def test_explorer_arrow_navigation(project: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(project)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            explorer = app.query_one(ProjectExplorer)
+            explorer.focus()
+            folder = next(
+                node for node in explorer.root.children if node.label.plain == "src"
+            )
+            explorer.move_cursor(folder)
+            assert not folder.is_expanded
+
+            await pilot.press("right")
+            await pilot.pause()
+            assert folder.is_expanded
+            assert explorer.cursor_node is folder
+            assert folder.children
+
+            await pilot.press("right")
+            assert explorer.cursor_node is folder.children[0]
+            await pilot.press("right")
+            assert explorer.cursor_node is folder.children[0]
+            assert app.tabs.tab_count == 0
+
+            await pilot.press("left")
+            assert explorer.cursor_node is folder
+            assert folder.is_expanded
+            await pilot.press("left")
+            assert not folder.is_expanded
+            assert explorer.cursor_node is folder
+            await pilot.press("left")
+            assert explorer.cursor_node is explorer.root
+            await pilot.press("left")
+            assert not explorer.root.is_expanded
+            await pilot.press("left")
+            assert explorer.cursor_node is explorer.root
+            await pilot.press("right")
+            assert explorer.root.is_expanded
+
+    _run(scenario())
+
+
+def test_explorer_arrows_on_empty_folder(project: Path) -> None:
+    (project / "empty").mkdir()
+
+    async def scenario() -> None:
+        app = _make_app(project)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            explorer = app.query_one(ProjectExplorer)
+            explorer.focus()
+            folder = next(
+                node for node in explorer.root.children if node.label.plain == "empty"
+            )
+            explorer.move_cursor(folder)
+            await pilot.press("right")
+            await pilot.pause()
+            assert folder.is_expanded
+            assert not folder.children
+            await pilot.press("right")
+            assert explorer.cursor_node is folder
+            await pilot.press("left")
+            assert not folder.is_expanded
+            assert explorer.cursor_node is folder
+            await pilot.press("left")
+            assert explorer.cursor_node is explorer.root
+
+    _run(scenario())

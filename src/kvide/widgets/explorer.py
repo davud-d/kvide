@@ -7,6 +7,7 @@ from typing import Iterable
 
 from rich.style import Style
 from rich.text import Text
+from textual.binding import Binding
 from textual.widgets import DirectoryTree
 
 from .. import icons
@@ -21,6 +22,31 @@ class ProjectExplorer(DirectoryTree):
     :mod:`kvide.icons` and fall back to text when the terminal lacks a Nerd
     Font.
     """
+
+    BINDINGS = [
+        Binding("left", "collapse_or_parent", "Collapse or parent", show=False),
+        Binding("right", "expand_or_child", "Expand or child", show=False),
+    ]
+
+    def action_collapse_or_parent(self) -> None:
+        """Collapse the current folder, otherwise move to its parent."""
+        node = self.cursor_node
+        if node is None:
+            return
+        if node.allow_expand and node.is_expanded:
+            node.collapse()
+        elif node.parent is not None:
+            self.move_cursor(node.parent)
+
+    def action_expand_or_child(self) -> None:
+        """Expand the current folder, otherwise move to its first child."""
+        node = self.cursor_node
+        if node is None or not node.allow_expand:
+            return
+        if not node.is_expanded:
+            node.expand()
+        elif node.children:
+            self.move_cursor(node.children[0])
 
     def __init__(
         self,
