@@ -248,3 +248,77 @@ def test_quit_with_dirty_documents_prompts(project: Path) -> None:
             assert app.current_doc().dirty is True
 
     _run(scenario())
+
+
+def test_middle_click_closes_clicked_tab(project: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(project)
+        async with app.run_test() as pilot:
+            await app._open_path(project / "src" / "a.py")
+            first_key = app.current_key()
+            first_pane = app._pane_id[first_key]
+            await app._open_path(project / "src" / "b.py")
+            await pilot.pause()
+            assert await pilot.click(app.tabs.get_tab(first_pane), button=2)
+            await pilot.pause()
+            assert app.store.get_key(first_key) is None
+            assert app.tabs.tab_count == 1
+            assert app.current_doc().name == "b.py"
+            assert await pilot.click(app.tabs.get_tab(app.tabs.active), button=2)
+            await pilot.pause()
+            assert app.tabs.tab_count == 0
+            assert app.current_doc() is None
+
+    _run(scenario())
+
+
+def test_middle_click_dirty_tab_choices(project: Path) -> None:
+    async def scenario(choice: int) -> None:
+        path = project / "src" / "a.py"
+        path.write_text("x = 1\n", encoding="utf-8")
+        app = _make_app(project)
+        async with app.run_test() as pilot:
+            await app._open_path(path)
+            first_key = app.current_key()
+            first_pane = app._pane_id[first_key]
+            app.current_editor().insert("changed\n")
+            await pilot.pause()
+            await app._open_path(project / "src" / "b.py")
+            await pilot.pause()
+            assert await pilot.click(app.tabs.get_tab(first_pane), button=2)
+            await pilot.pause()
+            assert isinstance(app.screen, ConfirmScreen)
+            assert app.tabs.tab_count == 2
+            assert await pilot.click(f"#choice-{choice}")
+            await pilot.pause()
+            if choice == 2:
+                assert app.tabs.tab_count == 2
+                assert app.store.get_key(first_key).dirty
+            else:
+                assert app.tabs.tab_count == 1
+                assert app.store.get_key(first_key) is None
+                assert app.current_doc().name == "b.py"
+            expected = "changed\nx = 1\n" if choice == 0 else "x = 1\n"
+            assert path.read_text(encoding="utf-8") == expected
+
+    for choice in range(3):
+        _run(scenario(choice))
+
+
+def test_left_click_switches_without_closing(project: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(project)
+        async with app.run_test() as pilot:
+            await app._open_path(project / "src" / "a.py")
+            first_pane = app.tabs.active
+            await app._open_path(project / "src" / "b.py")
+            await pilot.pause()
+            assert await pilot.click(app.tabs.get_tab(first_pane))
+            await pilot.pause()
+            assert app.tabs.tab_count == 2
+            assert app.current_doc().name == "a.py"
+            assert await pilot.click(app.current_editor(), button=2)
+            await pilot.pause()
+            assert app.tabs.tab_count == 2
+
+    _run(scenario())

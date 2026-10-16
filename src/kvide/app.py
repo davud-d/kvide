@@ -8,6 +8,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.events import Click
 from textual.widgets import DirectoryTree, Footer, TabbedContent, TabPane, TextArea
 
 from . import workspace as ws
@@ -196,6 +197,15 @@ class KvideApp(App):
             editor.focus()
         self._refresh_status()
 
+    def on_click(self, event: Click) -> None:
+        if event.button != 2:
+            return
+        for pane_id, key in self._doc_key.items():
+            if event.widget is self.tabs.get_tab(pane_id):
+                event.stop()
+                self._request_close_key(key)
+                return
+
     @on(EditorArea.CloseRequested)
     def _on_editor_close_requested(self, event: EditorArea.CloseRequested) -> None:
         self.action_close_tab()
@@ -236,10 +246,15 @@ class KvideApp(App):
         self.notify(f"saved {doc.name}", severity="information")
 
     def action_close_tab(self) -> None:
-        doc = self.current_doc()
+        key = self.current_key()
+        if key is not None:
+            self._request_close_key(key)
+
+    def _request_close_key(self, key: str) -> None:
+        self._sync_editor_to_doc(key)
+        doc = self.store.get_key(key)
         if doc is None:
             return
-        key = self.current_key()
         if doc.dirty:
             self.push_screen(
                 ConfirmScreen(
