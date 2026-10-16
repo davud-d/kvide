@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kvide"
+version = "0.1.0"
+description = "A small, safety-minded terminal code editor built on Textual"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "textual>=8.0,<9",
+    "rich>=13",
+]
+
+[project.optional-dependencies]
+syntax = [
+    "tree-sitter>=0.21",
+    "tree-sitter-python",
+    "tree-sitter-javascript",
+    "tree-sitter-json",
+    "tree-sitter-toml",
+    "tree-sitter-yaml",
+    "tree-sitter-html",
+    "tree-sitter-css",
+    "tree-sitter-rust",
+    "tree-sitter-go",
+    "tree-sitter-sql",
+    "tree-sitter-java",
+    "tree-sitter-bash",
+    "tree-sitter-xml",
+    "tree-sitter-markdown",
+]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+kvide = "kvide.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
