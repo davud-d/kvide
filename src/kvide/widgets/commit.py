@@ -42,8 +42,9 @@ class CommitPanel(Vertical):
         with VerticalScroll(id='generator-tools'):
             for index, generator in enumerate(self.generators):
                 shortcut = f'  Ctrl+F{index + 1}' if index < 9 else ''
-                label = f'{generator.icon if self.icon_mode == "nerd" else "*"} {generator.name}{shortcut}'
-                yield Button(Text(label), id=f'generate-{index}', classes='generator-button')
+                icon = generator.icon if self.icon_mode == 'nerd' else '*'
+                label = Text.assemble((icon, generator.color or ''), f' {generator.name}{shortcut}')
+                yield Button(label, id=f'generate-{index}', classes='generator-button')
         yield Label('Commit message', id='message-label')
         yield TextArea(id='commit-message', soft_wrap=True)
         with Horizontal(id='commit-actions'):

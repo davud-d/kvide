@@ -229,3 +229,52 @@ def test_generation_focus_modal_scope_and_failure(repo: Path) -> None:
             assert 'Generated title' in screen_text
 
     asyncio.run(asyncio.wait_for(scenario(), timeout=30))
+
+
+@pytest.mark.parametrize('color', [None, '', '#4fc3f7', 'red', 'rgb(79,195,247)'])
+def test_generator_color_config(tmp_path: Path, color: str | None) -> None:
+    config = tmp_path / 'generators.toml'
+    text = '[[generators]]\nname = "Local"\ncommand = ["local-generator"]\n'
+    if color is not None:
+        text += f'color = "{color}"\n'
+    config.write_text(text)
+    generators = load_generators(Workspace(tmp_path), config)
+    assert generators[0].color == (color or None)
+    assert Generator('Default', ('local-generator',)).color is None
+
+
+@pytest.mark.parametrize('value', ['"not-a-color"', '"#xyzxyz"', '"bold red"', '42', 'false', '[]'])
+def test_invalid_generator_color_rejects_file(tmp_path: Path, value: str) -> None:
+    config = tmp_path / 'generators.toml'
+    config.write_text(
+        '[[generators]]\nname = "Valid"\ncommand = ["local-generator"]\n'
+        '[[generators]]\nname = "Invalid"\ncommand = ["local-generator"]\n'
+        f'color = {value}\n'
+    )
+    with pytest.raises(GeneratorError, match='Cannot load generators:'):
+        load_generators(Workspace(tmp_path), config)
+
+
+@pytest.mark.parametrize('icon_mode, icon', [('nerd', '\uf489'), ('text', '*')])
+@pytest.mark.parametrize('color', [None, '#4fc3f7'])
+def test_generator_button_icon_color(repo: Path, icon_mode: str, icon: str, color: str | None) -> None:
+    from textual.color import Color
+    from textual.content import Content
+
+    async def scenario() -> None:
+        app = KvideApp(Workspace(repo), Settings(root=repo, icon_mode=icon_mode))
+        app.generators = [Generator('Local', ('local-generator',), icon='\uf489', color=color)]
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            label = app.query_one('#generate-0', Button).label
+            assert isinstance(label, Content)
+            assert label.plain == f'{icon} Local  Ctrl+F1'
+            assert label.get_style_at_offset(0).foreground == (Color.parse(color) if color else None)
+            for offset in range(len(icon), len(label)):
+                assert label.get_style_at_offset(offset).foreground is None
+            if color:
+                assert [(span.start, span.end) for span in label.spans] == [(0, len(icon))]
+            else:
+                assert label.spans == []
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=30))

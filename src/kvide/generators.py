@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 import tomllib
 
+from rich.color import Color
+
 from .workspace import Workspace
 
 
@@ -21,6 +23,7 @@ class Generator:
     command: tuple[str, ...]
     icon: str = '*'
     timeout: int = 60
+    color: str | None = None
 
 
 def load_generators(workspace: Workspace, path: Path) -> list[Generator]:
@@ -45,7 +48,13 @@ def load_generators(workspace: Workspace, path: Path) -> list[Generator]:
                 icon = icon.strip()
                 if not icon or len(icon) > 4 or any(ord(c) < 32 for c in icon):
                     raise ValueError('icon must contain 1–4 printable characters')
-            result.append(Generator(name.strip(), tuple(command), icon, timeout))
+            color = item.get('color')
+            if color is not None and not isinstance(color, str):
+                raise ValueError('color must be a string')
+            color = color or None
+            if color is not None:
+                Color.parse(color)
+            result.append(Generator(name.strip(), tuple(command), icon, timeout, color))
         return result
     except Exception as exc:
         raise GeneratorError(f'Cannot load generators: {exc}') from exc

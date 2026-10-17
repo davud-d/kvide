@@ -104,7 +104,9 @@ object from stdin (`version`, `files`, `diff`), prints the message as plain text
 on success, and can print
 `{"error": {"code": "...", "message": "..."}}` to raise a notification. See
 [docs/generators.md](docs/generators.md) for the configuration format, the
-icon file and the complete protocol.
+icon file and the complete protocol. An optional `color = "#4fc3f7"` in a
+generator entry colors only its icon (including `*` in `--icons text` mode),
+not its name or shortcut. Omit it or use `color = ""` for the default appearance.
 
 ## Architecture
 

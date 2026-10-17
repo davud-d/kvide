@@ -95,6 +95,7 @@ timeout = 120
 | `name` | string | yes | Non-empty after trimming surrounding whitespace. Shown on the button, in status text and in error notifications. |
 | `command` | array of strings | yes | Non-empty array; every element must be a non-empty string. Executed directly, without a shell. |
 | `icon` | string | no | Path to a small text file containing the button glyph. Defaults to `*`. See [Icons](#icons). |
+| `color` | string | no | Icon color accepted by Rich, for example `"#4fc3f7"` or `"cyan"`. Omitted or empty means no custom color. |
 | `timeout` | integer | no | Seconds, from 1 to 300. Defaults to 60. |
 
 Unknown keys are ignored, so a configuration may carry extra fields for other
@@ -167,6 +168,18 @@ shows `*` so the panel stays readable without a Nerd Font. The icon file is
 still validated at startup.
 
 If `icon` is omitted or set to an empty string, the button uses `*`.
+
+Set an optional color in the generator's TOML entry:
+
+```toml
+color = "#4fc3f7"
+```
+
+Only the icon is colored; the name and shortcut keep their existing appearance.
+The color also applies to `*` in `--icons text` mode or when no icon is set.
+Omitting `color` or setting it to `""` keeps the previous uncolored label.
+Colors are validated with `rich.color.Color.parse`; a non-string or invalid
+color rejects the whole configuration at startup.
 
 ## Where generator buttons appear
 
@@ -572,6 +585,8 @@ becomes part of the commit message.
 | `Cannot load generators: command must be a nonempty array of strings` | `command` is a shell string or contains a non-string | Use `["python", "plugin.py"]`. |
 | `Cannot load generators: timeout must be between 1 and 300 seconds` | Timeout out of range or not an integer | Use a whole number in `[1, 300]`. |
 | `Cannot load generators: icon must contain 1–4 printable characters` | Icon file is empty, has a trailing escape sequence, or is too long | Put a single glyph and a newline in the file. |
+| `Cannot load generators: ... is not a valid color` | `color` is not accepted by Rich | Use a color such as `"#4fc3f7"` or `"cyan"`, or omit it. |
+| `Cannot load generators: color must be a string` | `color` has a non-string TOML type | Quote the color value; use `""` for no custom color. |
 | Button shows `*` | `--icons text` mode, or no `icon` configured | Use a Nerd Font and the default `nerd` mode, and set `icon`. |
 | Icon renders as a box | Terminal font is not a Nerd Font | Install a Nerd Font or use `--icons text`. |
 | `Ctrl+F1` does nothing | Panel hidden, focus outside it, modal open, busy, or the terminal intercepts the key | Open the panel, click the button instead. |
