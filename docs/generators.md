@@ -1,8 +1,8 @@
 # Commit-message generators
 
 A generator is an external program that reads the selected changes and writes a
-commit message. Generators are optional: kvide never discovers them on its own,
-and runs only the ones listed in a TOML file passed with `--generators`.
+commit message. Generators are optional: kvide runs only the ones listed in a
+trusted TOML file supplied with `--generators` or in the user configuration.
 
 A generator can be a local script, a wrapper around a model API, or anything
 else that can read JSON from stdin and write text to stdout. kvide does not care
@@ -57,13 +57,20 @@ field. Review it and press `Commit` yourself; generation never commits.
 kvide --generators FILE     # path to a TOML configuration
 ```
 
-- The path is resolved relative to the directory kvide was started from.
-  Absolute paths work too.
+Configuration is selected in this order:
+
+1. `--generators FILE` takes precedence and disables the user default entirely,
+   even if FILE is missing or invalid. The files are never merged. Relative
+   explicit paths are resolved from the directory kvide was started from.
+2. Without the flag, kvide reads `$XDG_CONFIG_HOME/kvide/generators.toml`, or
+   `~/.config/kvide/generators.toml` if XDG_CONFIG_HOME is unset, empty or relative.
+   On Windows it uses `%APPDATA%\kvide\generators.toml` instead; if APPDATA is
+   unset, empty or relative, there is no default. Only an existing path is loaded.
+3. If the user file does not exist, no generators are loaded and no error is shown.
+
+- kvide never searches the repository or working directory for a configuration.
 - The configuration is read once at startup. Editing the TOML or the icon file
   requires restarting kvide.
-- There is no automatic discovery: kvide does not look for
-  `generators.toml`, a project file or a per-user default. If `--generators` is
-  absent, no generator buttons appear.
 - The configuration file is trusted input. Every command in it is executed
   with your user's privileges (see [Security](#security)).
 
@@ -561,9 +568,12 @@ becomes part of the commit message.
 
 - A generator is arbitrary code. It runs as your user, with your environment,
   your filesystem access and your network. There is no sandbox.
-- The configuration is explicit and trusted. kvide never loads a generator
-  configuration discovered in a repository, so cloning a project cannot add a
-  generator by itself. Still, only pass `--generators` files you have reviewed.
+- The configuration is trusted input. The default lives in your home directory
+  (`~/.config/kvide/generators.toml`), or your user configuration directory selected
+  by XDG_CONFIG_HOME or Windows APPDATA. kvide never discovers configurations in
+  a repository or working directory, so cloning a project cannot add a generator
+  by itself. Review both your user configuration and files passed explicitly with
+  `--generators`. File permissions are not checked.
 - Selected diffs, including the full content of untracked files, are sent to the
   generator. Path-based credential exclusions (`.env*`, `.ssh`, `.aws`,
   `.gnupg`, key and certificate suffixes) are applied before the diff is built,
@@ -579,7 +589,7 @@ becomes part of the commit message.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| No generator buttons | `--generators` not passed | Start kvide with the flag. |
+| No generator buttons | No configuration selected, or it lists no generators | Create the user configuration or pass `--generators FILE`. |
 | No buttons, one error notification at startup | Configuration or icon file could not be read or parsed | Read the notification; it includes the underlying TOML or filesystem error. |
 | `Cannot load generators: 'name'` (or `'command'`) | A required key is missing | Add `name` and `command` to every entry. |
 | `Cannot load generators: command must be a nonempty array of strings` | `command` is a shell string or contains a non-string | Use `["python", "plugin.py"]`. |
