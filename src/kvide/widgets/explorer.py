@@ -8,6 +8,7 @@ from typing import Iterable
 from rich.style import Style
 from rich.text import Text
 from textual.binding import Binding
+from textual.message import Message
 from textual.widgets import DirectoryTree
 
 from .. import icons
@@ -22,6 +23,14 @@ class ProjectExplorer(DirectoryTree):
     :mod:`kvide.icons` and fall back to text when the terminal lacks a Nerd
     Font.
     """
+
+    class ContextMenuRequested(Message):
+        """Posted when right-click is detected on a tree node."""
+
+        def __init__(self, path: Path, is_dir: bool) -> None:
+            super().__init__()
+            self.path = path
+            self.is_dir = is_dir
 
     BINDINGS = [
         Binding("left", "collapse_or_parent", "Collapse or parent", show=False),
@@ -108,3 +117,14 @@ class ProjectExplorer(DirectoryTree):
         if icon:
             return Text.assemble(icon + " ", label)
         return label
+
+    def on_click(self, event) -> None:
+        """Handle mouse clicks to detect right-click context menu requests."""
+        if event.button != 3:  # right button
+            return
+        node = self.get_node_at_line(event.y - self.gutter.size)
+        if node is None or node.data is None:
+            return
+        event.stop()
+        is_dir = node.allow_expand
+        self.post_message(self.ContextMenuRequested(node.data.path, is_dir))

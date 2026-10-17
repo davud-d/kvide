@@ -113,3 +113,75 @@ class QuickSwitchScreen(ModalScreen[str]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class ContextMenuScreen(ModalScreen[str]):
+    """A modal context menu with a list of actions."""
+
+    BINDINGS = [Binding("escape", "cancel", show=False)]
+
+    def __init__(self, options: Sequence[tuple[str, str]], x: int = 0, y: int = 0) -> None:
+        super().__init__()
+        self.options = list(options)
+        self.x = x
+        self.y = y
+
+    def compose(self) -> ComposeResult:
+        option_list = OptionList(id="context-menu-list")
+        option_list.styles.offset = (self.x, self.y)
+        yield option_list
+
+    def on_mount(self) -> None:
+        option_list = self.query_one("#context-menu-list", OptionList)
+        for action_id, label in self.options:
+            option_list.add_option(Option(label, id=action_id))
+        option_list.focus()
+
+    @on(OptionList.OptionSelected)
+    def on_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option_id is not None:
+            self.dismiss(event.option_id)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class InputScreen(ModalScreen[str]):
+    """A modal prompt for text input with a single field."""
+
+    BINDINGS = [Binding("escape", "cancel", show=False)]
+
+    def __init__(self, message: str, placeholder: str = "") -> None:
+        super().__init__()
+        self.message = message
+        self.placeholder = placeholder
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="input-box"):
+            yield Label(self.message)
+            yield Input(placeholder=self.placeholder, id="input-field")
+            with Horizontal(id="input-buttons"):
+                yield Button("OK", id="ok", variant="primary")
+                yield Button("Cancel", id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#input-field", Input).focus()
+
+    @on(Button.Pressed, "#ok")
+    def on_ok_pressed(self) -> None:
+        value = self.query_one("#input-field", Input).value.strip()
+        if value:
+            self.dismiss(value)
+
+    @on(Button.Pressed, "#cancel")
+    def on_cancel_pressed(self) -> None:
+        self.dismiss(None)
+
+    @on(Input.Submitted)
+    def on_input_submitted(self) -> None:
+        value = self.query_one("#input-field", Input).value.strip()
+        if value:
+            self.dismiss(value)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)

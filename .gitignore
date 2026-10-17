@@ -30,6 +30,9 @@ Cargo.lock
 **/*.rs.bk
 *.pdb`
 
+# IDE
+.idea
+
 # Kvist agent instructions (local, per-developer)
 KVIST.md
 KVIST-CHAT.md

@@ -120,6 +120,32 @@ class Workspace:
         except OSError as exc:
             raise FileWriteError(p) from exc
 
+    def create_file(self, path: str | Path) -> None:
+        """Create an empty file at *path*.
+        
+        Raises FileWriteError if the file cannot be created.
+        """
+        p = Path(path)
+        try:
+            p.touch(exist_ok=False)
+        except FileExistsError:
+            raise FileWriteError(p) from None
+        except OSError as exc:
+            raise FileWriteError(p) from exc
+
+    def create_directory(self, path: str | Path) -> None:
+        """Create a directory at *path*.
+        
+        Raises FileWriteError if the directory cannot be created.
+        """
+        p = Path(path)
+        try:
+            p.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            raise FileWriteError(p) from None
+        except OSError as exc:
+            raise FileWriteError(p) from exc
+
     def walk_files(
         self, *, show_hidden: bool = False, limit: int = 2000
     ) -> list[str]:

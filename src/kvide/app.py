@@ -20,7 +20,7 @@ from . import workspace as ws
 from .config import Settings
 from .documents import Document, DocumentStore
 from .editor import EditorArea
-from .screens import ConfirmScreen, QuickSwitchScreen
+from .screens import ConfirmScreen, ContextMenuScreen, InputScreen, QuickSwitchScreen
 from .theme import APP_CSS
 from .widgets import ProjectExplorer, ProjectHeader, StatusBar
 
@@ -41,6 +41,7 @@ class KvideApp(App):
         Binding("ctrl+p", "quick_switch", "Quick switch"),
         Binding("ctrl+b", "show_files", "Files"),
         Binding("ctrl+g", "show_commit", "Commit"),
+        Binding("ctrl+h", "toggle_hidden", "Toggle hidden"),
     ]
 
     def __init__(self, workspace: ws.Workspace, settings: Settings) -> None:
@@ -337,6 +338,77 @@ class KvideApp(App):
     async def _quick_switch_callback(self, path: str | None) -> None:
         if path:
             await self._open_path(self.workspace.root / path)
+
+    def action_toggle_hidden(self) -> None:
+        """Toggle visibility of hidden files in the explorer."""
+        self.settings.show_hidden = not self.settings.show_hidden
+        explorer = self.query_one(ProjectExplorer)
+        explorer.show_hidden = self.settings.show_hidden
+        explorer.reload()
+        status = "shown" if self.settings.show_hidden else "hidden"
+        self.notify(f"hidden files {status}", severity="information")
+
+    @on(ProjectExplorer.ContextMenuRequested)
+    def _on_context_menu_requested(self, event: ProjectExplorer.ContextMenuRequested) -> None:
+        """Show context menu for file/directory operations."""
+        if event.is_dir:
+            options = [
+                ("new_file", "New File"),
+                ("new_folder", "New Folder"),
+            ]
+        else:
+            options = [
+                ("delete", "Delete"),
+                ("rename", "Rename"),
+            ]
+        self.push_screen(
+            ContextMenuScreen(options),
+            callback=lambda action: self._handle_context_action(action, event.path, event.is_dir),
+        )
+
+    def _handle_context_action(self, action: str | None, path: Path, is_dir: bool) -> None:
+        """Handle the selected context menu action."""
+        if action is None:
+            return
+
+        if action == "new_file":
+            self.push_screen(
+                InputScreen("Enter file name:", "filename.txt"),
+                callback=lambda name: self._create_file(path, name),
+            )
+        elif action == "new_folder":
+            self.push_screen(
+                InputScreen("Enter folder name:", "newfolder"),
+                callback=lambda name: self._create_folder(path, name),
+            )
+        elif action == "delete":
+            self.notify("Delete not implemented yet", severity="warning")
+        elif action == "rename":
+            self.notify("Rename not implemented yet", severity="warning")
+
+    def _create_file(self, parent: Path, name: str | None) -> None:
+        """Create a new file in the given directory."""
+        if name is None:
+            return
+        target = parent / name
+        try:
+            self.workspace.create_file(target)
+            self.query_one(ProjectExplorer).reload()
+            self.notify(f"created {name}", severity="information")
+        except ws.FileWriteError:
+            self.notify(f"cannot create {name}", severity="error")
+
+    def _create_folder(self, parent: Path, name: str | None) -> None:
+        """Create a new folder in the given directory."""
+        if name is None:
+            return
+        target = parent / name
+        try:
+            self.workspace.create_directory(target)
+            self.query_one(ProjectExplorer).reload()
+            self.notify(f"created {name}", severity="information")
+        except ws.FileWriteError:
+            self.notify(f"cannot create {name}", severity="error")
 
     async def action_quit(self) -> None:
         dirty = [doc for doc in self.store.documents() if doc.dirty]

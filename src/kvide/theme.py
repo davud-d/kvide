@@ -133,11 +133,11 @@ EditorArea {
     background: $surface;
 }
 
-ConfirmScreen, QuickSwitchScreen {
+ConfirmScreen, QuickSwitchScreen, InputScreen, ContextMenuScreen {
     align: center middle;
 }
 
-#confirm-box, #quick-box {
+#confirm-box, #quick-box, #input-box {
     width: 64;
     height: auto;
     max-height: 24;
@@ -151,13 +151,31 @@ ConfirmScreen, QuickSwitchScreen {
     padding: 1 0;
 }
 
-#confirm-buttons {
+#confirm-buttons, #input-buttons {
     height: auto;
     padding: 0 0 1 0;
 }
 
-#confirm-buttons Button {
+#confirm-buttons Button, #input-buttons Button {
     margin-right: 1;
+}
+
+#input-box Label {
+    width: 100%;
+    padding: 1 0;
+}
+
+#input-field {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#context-menu-list {
+    width: 30;
+    height: auto;
+    max-height: 12;
+    background: $panel;
+    border: round $primary;
 }
 
 #quick-input {
