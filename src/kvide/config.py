@@ -15,6 +15,7 @@ class Settings:
     root: Path = field(default_factory=Path.cwd)
     show_hidden: bool = False
     icon_mode: str = "nerd"
+    generators_config: Path | None = None
 
     def validate(self) -> None:
         """Normalize and check the settings before the app starts."""

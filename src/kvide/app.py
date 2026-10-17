@@ -7,7 +7,12 @@ from pathlib import Path
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button
+
+from .generators import GeneratorError, load_generators
+from .git import GitRepository
+from .widgets.commit import CommitPanel
 from textual.events import Click
 from textual.widgets import DirectoryTree, Footer, TabbedContent, TabPane, TextArea
 
@@ -34,6 +39,8 @@ class KvideApp(App):
         Binding("ctrl+pagedown", "next_tab", "Next tab", show=False),
         Binding("ctrl+pageup", "prev_tab", "Previous tab", show=False),
         Binding("ctrl+p", "quick_switch", "Quick switch"),
+        Binding("ctrl+b", "show_files", "Files"),
+        Binding("ctrl+g", "show_commit", "Commit"),
     ]
 
     def __init__(self, workspace: ws.Workspace, settings: Settings) -> None:
@@ -41,6 +48,13 @@ class KvideApp(App):
         self.workspace = workspace
         self.settings = settings
         self.store = DocumentStore(workspace)
+        self.generators = []
+        self.generator_error = None
+        if settings.generators_config is not None:
+            try:
+                self.generators = load_generators(workspace, Path(settings.generators_config).resolve())
+            except GeneratorError as exc:
+                self.generator_error = str(exc)
 
         # UI bookkeeping: document key <-> pane/editor ids.
         self._pane_id: dict[str, str] = {}
@@ -55,6 +69,14 @@ class KvideApp(App):
     def compose(self) -> ComposeResult:
         yield ProjectHeader(self.workspace.name, id="header")
         with Horizontal(id="body"):
+            with Vertical(id="activity-bar"):
+                files_button = Button('\uf07c' if self.settings.icon_mode == 'nerd' else 'F', id='show-files', classes='active')
+                files_button.tooltip = 'Files (Ctrl+B)'
+                yield files_button
+                commit_button = Button('\ue729' if self.settings.icon_mode == 'nerd' else 'G', id='show-commit')
+                commit_button.tooltip = 'Commit (Ctrl+G)'
+                yield commit_button
+            yield CommitPanel(GitRepository(self.workspace), self.generators, self.settings.icon_mode)
             yield ProjectExplorer(
                 str(self.workspace.root),
                 icon_mode=self.settings.icon_mode,
@@ -69,7 +91,28 @@ class KvideApp(App):
         self.tabs = self.query_one("#tabs", TabbedContent)
         self.status = self.query_one("#status", StatusBar)
         self.query_one(ProjectExplorer).focus()
+        self.query_one(CommitPanel).display = False
+        if self.generator_error:
+            self.notify(self.generator_error, severity='error', markup=False)
         self._refresh_status()
+
+    @on(Button.Pressed, '#show-files')
+    def action_show_files(self) -> None:
+        self.query_one(CommitPanel).display = False
+        self.query_one(ProjectExplorer).display = True
+        self.query_one('#show-files').add_class('active')
+        self.query_one('#show-commit').remove_class('active')
+        self.query_one(ProjectExplorer).focus()
+
+    @on(Button.Pressed, '#show-commit')
+    def action_show_commit(self) -> None:
+        self.query_one(ProjectExplorer).display = False
+        panel = self.query_one(CommitPanel)
+        panel.display = True
+        self.query_one('#show-files').remove_class('active')
+        self.query_one('#show-commit').add_class('active')
+        panel.query_one('#commit-files').focus()
+        panel.refresh_changes()
 
     # -- helpers -------------------------------------------------------------
 

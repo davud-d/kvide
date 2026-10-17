@@ -14,6 +14,8 @@ client deeply integrated with the Kvist coding agent.
 - Safe close/quit: a prompt before discarding unsaved changes
 - Quick file switcher (Ctrl+P) with fuzzy matching
 - Nerd Font icons with a plain-text fallback mode
+- Commit panel: select files, write a message, commit selected changes
+- Optional commit-message generators (small pluggable scripts)
 - Keyboard and mouse navigation — no Vim knowledge required
 
 ## Installation
@@ -46,6 +48,7 @@ Options:
 ```text
 --icons {nerd,text}   icon set (default nerd; use text without a Nerd Font)
 --show-hidden         show hidden files and directories
+--generators FILE     optional commit-message generator config (TOML)
 ```
 
 For correct icons, install a Nerd Font (https://www.nerdfonts.com/) and set it
@@ -60,11 +63,48 @@ as the terminal font. Use `--icons text` otherwise.
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+PageDown` / `Ctrl+PageUp` | Next / previous tab (terminal-safe alternative) |
 | `Ctrl+P` | Quick file switcher |
+| `Ctrl+B` | Show the file explorer |
+| `Ctrl+G` | Show the commit panel |
 | `Ctrl+Q` | Quit |
 | `Ctrl+Z` / `Ctrl+Y` | Undo / redo (in the editor) |
 
 The file tree supports `Up`/`Down`, `Enter` to open, `Left`/`Right` to
 collapse/expand, and mouse clicks. Clicking a folder label toggles it.
+
+## Documentation
+
+- [Commit panel](docs/commit-panel.md) — selecting files, committing exactly
+  those files, unsaved-buffer and merge-conflict checks, error reference.
+- [Commit-message generators](docs/generators.md) — the TOML configuration,
+  icon files, input and output protocol, JSON error notifications, examples and
+  troubleshooting.
+
+## Commit panel
+
+`Ctrl+G` opens the commit panel and `Ctrl+B` returns to the file explorer (the
+folder and git icons in the activity bar do the same). Inside the panel: `Space`
+toggles a file, type a message, then press `Commit`. Only the selected files are
+committed and unrelated staged changes are left alone. Unsaved editor buffers
+must be saved first. There is no push. See
+[docs/commit-panel.md](docs/commit-panel.md) for the full behaviour and error
+reference.
+
+## Message generators
+
+Generators are optional scripts that write a commit message from the selected
+diff. They are enabled explicitly:
+
+```bash
+kvide --generators generators.toml
+```
+
+Each entry becomes a button above the message field; `Ctrl+F1` through `Ctrl+F9`
+trigger the first nine when the panel has focus. A generator reads one JSON
+object from stdin (`version`, `files`, `diff`), prints the message as plain text
+on success, and can print
+`{"error": {"code": "...", "message": "..."}}` to raise a notification. See
+[docs/generators.md](docs/generators.md) for the configuration format, the
+icon file and the complete protocol.
 
 ## Architecture
 
@@ -81,9 +121,11 @@ src/kvide/
   languages.py  filename -> Tree-sitter language detection
   icons.py      Nerd Font glyphs with text fallbacks
   config.py     Settings from the command line
+  git.py        selected-file staging and commit (pure Python)
+  generators.py commit-message generator config and protocol (pure Python)
   screens.py    modal prompts and the quick file switcher
   theme.py      the Textual stylesheet
-  widgets/      explorer (directory tree), status bar, header
+  widgets/      explorer, commit panel, status bar, header
 ```
 
 `DocumentStore` owns open documents, dirty tracking and persistence; the
@@ -98,13 +140,16 @@ python -m pytest
 ```
 
 The suite covers newline handling, workspace/filesystem operations, the
-document store, and end-to-end app behavior through Textual's headless pilot
-(open, edit, save, switch tabs, close and quit with unsaved changes).
+document store, selected-file Git operations, the generator protocol, and
+end-to-end app behavior through Textual's headless pilot (open, edit, save,
+switch tabs, close and quit with unsaved changes, commit and generation in the
+commit panel).
 
 ## Known limitations
 
-- No LSP, Git integration, terminal emulation, plugin system, or AI agent
-  execution (intentionally out of scope for this version).
+- No LSP, terminal emulation, or AI agent execution (intentionally out of
+  scope for this version). Git support is limited to committing selected files:
+  no push, branching, or history view.
 - Syntax highlighting requires the `syntax` extra to be installed.
 - Icons are best-effort Nerd Font code points; use `--icons text` if glyphs
   render as boxes.
@@ -115,4 +160,6 @@ document store, and end-to-end app behavior through Textual's headless pilot
 ## Next steps
 
 The natural next step is a document/selection API surface that Kvist can drive
-programmatically (open, edit, save, navigate), followed by Git integration.
+programmatically (open, edit, save, navigate), followed by fuller Git support
+(branching, push, a history view).
+

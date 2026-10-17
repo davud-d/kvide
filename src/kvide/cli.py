@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .app import KvideApp
@@ -34,6 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="show hidden files and directories",
     )
     parser.add_argument(
+        '--generators', type=Path,
+        help='explicit trusted generator configuration (TOML)',
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"kvide {__version__}",
@@ -50,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             root=args.path,
             show_hidden=args.show_hidden,
             icon_mode=args.icons,
+            generators_config=args.generators,
         )
         settings.validate()
         workspace = Workspace(settings.root)
