@@ -8,6 +8,8 @@ from textual.message import Message
 from textual.widgets import TextArea
 
 from .documents import Document
+from .completions import CompletionError, completion_range
+from .widgets.completion import CompletionMenu
 
 
 class EditorArea(TextArea):
@@ -28,6 +30,8 @@ class EditorArea(TextArea):
 
     def __init__(self, document: Document, *, id: str | None = None) -> None:
         self.doc = document
+        self.completion_menu: CompletionMenu | None = None
+        self.suggestion_cursor: tuple[int, int] | None = None
         super().__init__(
             document.text,
             language=document.language,
@@ -48,8 +52,69 @@ class EditorArea(TextArea):
     def action_close_tab(self) -> None:
         self.post_message(self.CloseRequested())
 
+    def on_blur(self) -> None:
+        self.dismiss_completion()
+
+    def dismiss_completion(self) -> None:
+        if self.completion_menu is not None:
+            self.completion_menu.remove()
+            self.completion_menu = None
+
+    def show_ghost(self, text: str, cursor: tuple[int, int]) -> None:
+        """Draw ``text`` after ``cursor``; only its first line fits on the cursor line."""
+        self.suggestion = text.split("\n")[0]
+        self.suggestion_cursor = cursor
+
+    def edit(self, edit):
+        """Keep ghost text only while the typed text follows it (Textual also keeps it on deletions)."""
+        follows = bool(self.suggestion and edit.text and self.suggestion.startswith(edit.text))
+        result = super().edit(edit)
+        if follows:
+            self.suggestion_cursor = self.cursor_location
+        else:
+            self.suggestion = ""
+        return result
+
+    def accept_ghost(self) -> None:
+        text, self.suggestion = self.suggestion, ""
+        self.insert(text)
+
+    def accept_completion(self) -> None:
+        menu = self.completion_menu
+        if menu is None:
+            return
+        self.dismiss_completion()
+        if self.read_only or self.text != menu.snapshot or self.cursor_location != menu.cursor:
+            return
+        try:
+            item = menu.current_item()
+            start, end = completion_range(self.text, item, self.cursor_location)
+            self.replace(item.get("insertText", item["label"]), start, end, maintain_selection_offset=False)
+        except CompletionError as exc:
+            self.notify(str(exc), severity="error", markup=False)
+
     async def _on_key(self, event: events.Key) -> None:
-        """Carry the current line's indentation over to the next line on Enter."""
+        """Accept suggestions first, otherwise preserve TextArea editing."""
+        if self.suggestion and self.completion_menu is None and event.key in ("tab", "escape"):
+            event.stop()
+            event.prevent_default()
+            if event.key == "tab" and not self.read_only:
+                self.accept_ghost()
+            else:
+                self.suggestion = ""
+            return
+        if self.completion_menu is not None:
+            if event.key in ("up", "down", "enter", "tab", "escape"):
+                event.stop()
+                event.prevent_default()
+                if event.key in ("up", "down"):
+                    self.completion_menu.move(-1 if event.key == "up" else 1)
+                elif event.key == "escape":
+                    self.dismiss_completion()
+                else:
+                    self.accept_completion()
+                return
+            self.dismiss_completion()
         if event.key == "enter" and not self.read_only:
             event.stop()
             event.prevent_default()

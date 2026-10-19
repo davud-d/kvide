@@ -57,6 +57,10 @@ def build_parser() -> argparse.ArgumentParser:
         help='explicit trusted generator configuration (TOML)',
     )
     parser.add_argument(
+        '--completion-extension', type=Path, action='append', default=[],
+        help='run a trusted VS Code completion extension directory (repeatable; executes JavaScript)',
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"kvide {__version__}",
@@ -73,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
             root=args.path,
             show_hidden=args.show_hidden,
             icon_mode=args.icons,
+            completion_extensions=args.completion_extension,
             generators_config=(
                 args.generators if args.generators is not None
                 else default_generators_path()

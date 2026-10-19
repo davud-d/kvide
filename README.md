@@ -71,7 +71,26 @@ as the terminal font. Use `--icons text` otherwise.
 The file tree supports `Up`/`Down`, `Enter` to open, `Left`/`Right` to
 collapse/expand, and mouse clicks. Clicking a folder label toggles it.
 
+## Completion extensions
+
+Run trusted JavaScript completion providers using a limited VS Code-compatible
+API (Node.js required):
+
+```bash
+python -m kvide . --completion-extension examples/completion-extension
+```
+
+Type `pri` in a Python file or press `Ctrl+Space`; select with Up/Down and insert
+with Tab/Enter. Escape dismisses. Extensions execute code with your permissions;
+only enable trusted directories. CommonJS providers using the documented subset
+can keep their `require('vscode')` and registration code. This is not full VS Code
+extension compatibility. See [Completion extensions](docs/completions.md) for
+installation, the API contract, TypeScript migration and limitations.
+
 ## Documentation
+
+- [Completion extensions](docs/completions.md) — VS Code-style JavaScript API,
+  installation, examples, supported surface and migration limitations.
 
 - [Commit panel](docs/commit-panel.md) — selecting files, committing exactly
   those files, unsaved-buffer and merge-conflict checks, error reference.
@@ -164,4 +183,9 @@ commit panel).
 The natural next step is a document/selection API surface that Kvist can drive
 programmatically (open, edit, save, navigate), followed by fuller Git support
 (branching, push, a history view).
+
+## LICENSE
+MIT
+
+
 

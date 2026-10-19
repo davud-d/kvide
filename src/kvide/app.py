@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from textual import on
+from textual import on, work
+
+from .completions import CompletionError, CompletionService
+from .widgets.completion import CompletionMenu
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -33,6 +36,7 @@ class KvideApp(App):
 
     BINDINGS = [
         Binding("ctrl+s", "save", "Save"),
+        Binding("ctrl+space", "complete", "Suggest"),
         Binding("ctrl+w", "close_tab", "Close tab"),
         Binding("ctrl+tab", "next_tab", "Next tab"),
         Binding("ctrl+shift+tab", "prev_tab", "Previous tab"),
@@ -48,6 +52,8 @@ class KvideApp(App):
         super().__init__()
         self.workspace = workspace
         self.settings = settings
+        self.completions = CompletionService(settings.completion_extensions, workspace.root)
+        self._completion_generation = 0
         self.store = DocumentStore(workspace)
         self.generators = []
         self.generator_error = None
@@ -263,15 +269,93 @@ class KvideApp(App):
         if doc is None:
             return
         doc.update_text(event.text_area.text)
+        editor = event.text_area
+        editor.dismiss_completion()
+        self._completion_generation += 1
+        if self.completions.hosts and editor.has_focus:
+            generation = self._completion_generation
+            self.set_timer(0.25, lambda: self._auto_complete(editor, generation))
         self._update_tab_label(doc)
         self._refresh_status()
 
     @on(TextArea.SelectionChanged)
     def _on_selection_changed(self, event: TextArea.SelectionChanged) -> None:
+        editor = event.text_area
+        if editor.completion_menu is not None and editor.cursor_location != editor.completion_menu.cursor:
+            editor.dismiss_completion()
+        if editor.suggestion and editor.cursor_location != editor.suggestion_cursor:
+            editor.suggestion = ""
         if self._editor_key.get(event.text_area.id) == self.current_key():
             self._refresh_status()
 
     # -- actions -------------------------------------------------------------
+
+    async def on_unmount(self) -> None:
+        await self.completions.close()
+
+    def action_complete(self) -> None:
+        if not self.completions.hosts:
+            self.notify("Enable a trusted extension with --completion-extension DIR", markup=False)
+            return
+        self._request_completion(manual=True)
+        self._request_inline()
+
+    @work(group="completion", exclusive=True)
+    async def _request_completion(self, manual: bool = False) -> None:
+        editor = self.current_editor()
+        if editor is None or not editor.has_focus or editor.read_only:
+            return
+        editor.dismiss_completion()
+        text, cursor = editor.text, editor.cursor_location
+        generation = self._completion_generation
+        try:
+            items = await self.completions.complete(editor.doc.path, editor.doc.language or "plaintext", text, cursor)
+        except CompletionError as exc:
+            self.notify(str(exc), severity="error", markup=False)
+            return
+        if (generation != self._completion_generation or editor is not self.current_editor()
+                or not editor.is_mounted or not editor.has_focus
+                or editor.text != text or editor.cursor_location != cursor):
+            return
+        row, col = cursor
+        line = text.split("\n")[row]
+        start = col
+        while start and (line[start - 1].isalnum() or line[start - 1] == "_"):
+            start -= 1
+        prefix = line[start:col].casefold()
+        items = [i for i in items if str(i.get("filterText") or i["label"]).casefold().startswith(prefix)]
+        if items:
+            menu = CompletionMenu(editor, items, text, cursor)
+            editor.completion_menu = menu
+            await self.screen.mount(menu)
+        elif manual:
+            self.notify("No completions", markup=False)
+
+    def _auto_complete(self, editor: EditorArea, generation: int) -> None:
+        if (generation == self._completion_generation and self.current_editor() is editor
+                and editor.is_mounted and editor.has_focus):
+            self._request_completion()
+            self._request_inline(automatic=True)
+
+    @work(group="inline-completion", exclusive=True)
+    async def _request_inline(self, automatic: bool = False) -> None:
+        """Show the first inline completion as ghost text after the cursor (like VS Code)."""
+        editor = self.current_editor()
+        if editor is None or not editor.has_focus or editor.read_only:
+            return
+        text, cursor = editor.text, editor.cursor_location
+        generation = self._completion_generation
+        try:
+            ghost = await self.completions.inline(
+                editor.doc.path, editor.doc.language or "plaintext", text, cursor, automatic)
+        except CompletionError as exc:
+            self.notify(str(exc), severity="error", markup=False)
+            return
+        if (generation != self._completion_generation or editor is not self.current_editor()
+                or not editor.is_mounted or not editor.has_focus
+                or editor.text != text or editor.cursor_location != cursor):
+            return
+        editor.show_ghost(ghost, cursor)
 
     def action_save(self) -> None:
         key = self.current_key()

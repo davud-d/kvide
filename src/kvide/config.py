@@ -16,6 +16,7 @@ class Settings:
     show_hidden: bool = False
     icon_mode: str = "nerd"
     generators_config: Path | None = None
+    completion_extensions: list[Path] = field(default_factory=list)
 
     def validate(self) -> None:
         """Normalize and check the settings before the app starts."""

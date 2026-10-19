@@ -42,5 +42,8 @@ kvide = "kvide.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+kvide = ["*.cjs"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
