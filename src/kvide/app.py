@@ -25,7 +25,7 @@ from .documents import Document, DocumentStore
 from .editor import EditorArea
 from .screens import ConfirmScreen, ContextMenuScreen, InputScreen, QuickSwitchScreen
 from .theme import APP_CSS
-from .widgets import ProjectExplorer, ProjectHeader, StatusBar
+from .widgets import ProjectExplorer, ProjectHeader, StatusBar, TerminalPane
 
 
 class KvideApp(App):
@@ -46,6 +46,9 @@ class KvideApp(App):
         Binding("ctrl+b", "show_files", "Files"),
         Binding("ctrl+g", "show_commit", "Commit"),
         Binding("ctrl+h", "toggle_hidden", "Toggle hidden"),
+        Binding("ctrl+grave_accent", "toggle_terminal", "Terminal", show=False),
+        Binding("ctrl+underscore", "toggle_terminal", "Terminal", show=False),
+        Binding("alt+minus", "toggle_terminal", "Terminal"),
     ]
 
     def __init__(self, workspace: ws.Workspace, settings: Settings) -> None:
@@ -91,6 +94,8 @@ class KvideApp(App):
                 id="explorer",
             )
             yield TabbedContent(id="tabs")
+        if self.settings.enable_terminal:
+            yield TerminalPane(self.workspace.root, id="terminal")
         yield StatusBar(id="status")
         yield Footer()
 
@@ -120,6 +125,24 @@ class KvideApp(App):
         self.query_one('#show-commit').add_class('active')
         panel.query_one('#commit-files').focus()
         panel.refresh_changes()
+
+    def action_toggle_terminal(self) -> None:
+        """Toggle the opt-in command panel and restore editor focus on close."""
+        if not self.settings.enable_terminal:
+            self.notify("Enable the command panel with --enable-terminal", markup=False)
+            return
+        panel = self.query_one(TerminalPane)
+        panel.toggle_terminal()
+        if not panel.display:
+            self._focus_after_terminal()
+
+    @on(TerminalPane.Closed)
+    def _focus_after_terminal(self) -> None:
+        editor = self.current_editor()
+        if editor is not None:
+            editor.focus()
+        else:
+            self.query_one(ProjectExplorer).focus()
 
     # -- helpers -------------------------------------------------------------
 

@@ -61,6 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
         help='run a trusted VS Code completion extension directory (repeatable; executes JavaScript)',
     )
     parser.add_argument(
+        "--enable-terminal",
+        action="store_true",
+        help="enable the shell command panel (executes commands you enter)",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"kvide {__version__}",
@@ -76,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings(
             root=args.path,
             show_hidden=args.show_hidden,
+            enable_terminal=args.enable_terminal,
             icon_mode=args.icons,
             completion_extensions=args.completion_extension,
             generators_config=(

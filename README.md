@@ -1,8 +1,14 @@
 # kvide
 
-A small, safety-minded terminal code editor built on [Textual](https://textual.textualize.io/).
-It is the first working version of a terminal IDE, intended to grow into a
-client deeply integrated with the Kvist coding agent.
+A keyboard-friendly terminal code editor built with [Textual](https://textual.textualize.io/).
+Edit files in tabs, review selected Git changes, and add trusted completion
+providers without leaving your terminal.
+
+kvide is an early-stage project for Python 3.12+. Integration with the Kvist
+coding agent is a future goal, not a feature available today.
+
+[Getting started](#installation) · [Keyboard shortcuts](#keyboard-shortcuts) ·
+[Documentation](#documentation) · [Development](#testing)
 
 ## Features
 
@@ -23,13 +29,19 @@ client deeply integrated with the Kvist coding agent.
 Requires Python 3.12+.
 
 ```bash
-git clone <this repository>
-cd kvide
+# From the repository root after cloning:
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[syntax]"     # syntax highlighting grammars
-pip install -e ".[dev]"        # pytest, for running the test suite
+python -m pip install -e ".[syntax]"
+kvide .
 ```
+
+The activation command above is for Bash/Zsh. In fish, use
+`source .venv/bin/activate.fish`; in PowerShell, use
+`.venv\Scripts\Activate.ps1`.
+
+Git is required for the commit panel. Node.js 18+ is required only for completion
+extensions. A Nerd Font is optional; `kvide --icons text` uses text labels.
 
 The `syntax` extra installs the `tree-sitter-*` grammars that power
 highlighting. Without it the editor still runs, but files are shown as plain
@@ -48,7 +60,11 @@ Options:
 ```text
 --icons {nerd,text}   icon set (default nerd; use text without a Nerd Font)
 --show-hidden         show hidden files and directories
---generators FILE     optional commit-message generator config (TOML)
+--generators FILE     explicit trusted commit-message generator config (TOML)
+--completion-extension DIR
+                      trusted JavaScript completion extension (repeatable)
+--enable-terminal     enable the opt-in shell command panel
+--version             show the installed version
 ```
 
 For correct icons, install a Nerd Font (https://www.nerdfonts.com/) and set it
@@ -65,6 +81,9 @@ as the terminal font. Use `--icons text` otherwise.
 | `Ctrl+P` | Quick file switcher |
 | `Ctrl+B` | Show the file explorer |
 | `Ctrl+G` | Show the commit panel |
+| `Ctrl+H` | Toggle hidden files |
+| `Ctrl+Space` | Request completions from enabled extensions |
+| `Alt+-` | Toggle the command panel (requires `--enable-terminal`) |
 | `Ctrl+Q` | Quit |
 | `Ctrl+Z` / `Ctrl+Y` | Undo / redo (in the editor) |
 
@@ -86,6 +105,25 @@ only enable trusted directories. CommonJS providers using the documented subset
 can keep their `require('vscode')` and registration code. This is not full VS Code
 extension compatibility. See [Completion extensions](docs/completions.md) for
 installation, the API contract, TypeScript migration and limitations.
+
+## Shell command panel
+
+The command panel is disabled by default. Enable it explicitly:
+
+```bash
+kvide . --enable-terminal
+```
+
+Press `Alt+-` to show or hide it; Escape closes it. Enter runs a command from
+the project directory, Up/Down recalls command history, and `clear` clears the
+output. Commands run through the system shell with your user permissions, so
+review them before pressing Enter.
+
+This is a one-shot command runner, not a terminal emulator: there is no PTY or
+interactive input. Output appears after the command finishes, and commands are
+killed after 30 seconds. Each command starts a new shell; `cd` and environment
+changes do not persist between commands. The implementation uses POSIX process
+groups for cleanup and should be treated as Unix-oriented.
 
 ## Documentation
 
@@ -146,7 +184,9 @@ src/kvide/
   generators.py commit-message generator config and protocol (pure Python)
   screens.py    modal prompts and the quick file switcher
   theme.py      the Textual stylesheet
-  widgets/      explorer, commit panel, status bar, header
+  completions.py completion provider orchestration and process transport
+  completion_host.cjs limited VS Code-compatible JavaScript API
+  widgets/      explorer, commit panel, completions, command panel, status bar, header
 ```
 
 `DocumentStore` owns open documents, dirty tracking and persistence; the
@@ -156,9 +196,14 @@ exceptions instead of crashing the UI.
 
 ## Testing
 
+Install the development dependencies and run the suite from the repository root:
+
 ```bash
+python -m pip install -e ".[dev,syntax]"
 python -m pytest
 ```
+
+UI tests use Textual's headless pilot; no desktop session is needed.
 
 The suite covers newline handling, workspace/filesystem operations, the
 document store, selected-file Git operations, the generator protocol, and
@@ -168,8 +213,8 @@ commit panel).
 
 ## Known limitations
 
-- No LSP, terminal emulation, or AI agent execution (intentionally out of
-  scope for this version). Git support is limited to committing selected files:
+- No LSP client, full terminal emulation, or AI agent execution. The optional
+  shell panel runs one-shot commands only. Git support is limited to committing selected files:
   no push, branching, or history view.
 - Syntax highlighting requires the `syntax` extra to be installed.
 - Icons are best-effort Nerd Font code points; use `--icons text` if glyphs
@@ -184,8 +229,6 @@ The natural next step is a document/selection API surface that Kvist can drive
 programmatically (open, edit, save, navigate), followed by fuller Git support
 (branching, push, a history view).
 
-## LICENSE
-MIT
+## License
 
-
-
+MIT, as declared in `pyproject.toml`.
