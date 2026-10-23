@@ -231,4 +231,5 @@ programmatically (open, edit, save, navigate), followed by fuller Git support
 
 ## License
 
-MIT, as declared in `pyproject.toml`.
+GNU General Public License v3.0 or later (`GPL-3.0-or-later`). The full text is
+in [LICENSE](LICENSE).

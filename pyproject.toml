@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A small, safety-minded terminal code editor built on Textual"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 dependencies = [
     "textual>=8.0,<9",
     "rich>=13",
